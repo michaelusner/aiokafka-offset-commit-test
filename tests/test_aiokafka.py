@@ -3,7 +3,6 @@ from contextlib import asynccontextmanager
 
 import pytest
 import pytest_asyncio
-from aiokafka import TopicPartition
 from rugby_common.application_services.kafka import (
     KafkaConsumerClient,
     KafkaProducerClient,
@@ -13,10 +12,12 @@ pytestmark = pytest.mark.asyncio
 
 logging.basicConfig(level=logging.INFO)
 
+KAFKA_HOST = "localhost:9092"
+
 
 @pytest_asyncio.fixture
 async def producer():
-    prod = KafkaProducerClient(bootstrap_servers=["localhost:9092"])
+    prod = KafkaProducerClient(bootstrap_servers=[KAFKA_HOST])
     await prod.start()
     yield prod
     await prod.stop()
@@ -27,7 +28,7 @@ async def consumer():
     con = KafkaConsumerClient(
         "test_topic",
         group_id="group1",
-        bootstrap_servers=["localhost:9092"],
+        bootstrap_servers=[KAFKA_HOST],
         enable_auto_commit=False,
     )
     await con.start()
@@ -51,7 +52,7 @@ async def test_commit(producer):
     consumer = KafkaConsumerClient(
         "test_topic",
         group_id="group1",
-        bootstrap_servers=["localhost:9092"],
+        bootstrap_servers=[KAFKA_HOST],
         enable_auto_commit=False,
     )
     await consumer.start()
@@ -67,7 +68,7 @@ async def test_commit(producer):
     consumer = KafkaConsumerClient(
         "test_topic",
         group_id="group1",
-        bootstrap_servers=["localhost:9092"],
+        bootstrap_servers=[KAFKA_HOST],
         enable_auto_commit=False,
     )
     await consumer.start()
@@ -83,7 +84,7 @@ async def test_commit(producer):
     consumer = KafkaConsumerClient(
         "test_topic",
         group_id="group1",
-        bootstrap_servers=["localhost:9092"],
+        bootstrap_servers=[KAFKA_HOST],
         enable_auto_commit=False,
     )
     await consumer.start()
