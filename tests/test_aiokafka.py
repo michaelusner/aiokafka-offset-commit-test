@@ -16,22 +16,32 @@ KAFKA_HOST = "localhost:9092"
 
 
 @pytest_asyncio.fixture
-async def producer():
+async def producer(messages):
     prod = KafkaProducerClient(bootstrap_servers=[KAFKA_HOST])
     await prod.start()
+    # add messages
+    for _ in range(messages):
+        await prod.send_and_wait(topic="test_topic", value="Test message".encode())
     yield prod
     await prod.stop()
 
 
-@pytest_asyncio.fixture
-async def consumer():
-    con = KafkaConsumerClient(
+@asynccontextmanager
+async def get_consumer():
+    cons = KafkaConsumerClient(
         "test_topic",
         group_id="group1",
         bootstrap_servers=[KAFKA_HOST],
         enable_auto_commit=False,
     )
-    await con.start()
+    await cons.start()
+    yield cons
+    await cons.stop()
+
+
+@asynccontextmanager
+async def consumer():
+    con = get_consumer()
     yield con
     await con.stop()
 
@@ -42,56 +52,41 @@ async def consumer_commit(client: KafkaConsumerClient):
     await client.commit()
 
 
-async def test_commit(producer):
-    # add some messages
-    for i in range(1, 11):
-        await producer.send_and_wait(
-            topic="test_topic", value=f"Test message {i}".encode()
-        )
+@pytest.mark.parametrize("messages", [1])
+async def test_commit_offset_without_context_should_not_be_updated(producer):
+    async with get_consumer() as consumer:
+        msg = await consumer.getone()
 
-    consumer = KafkaConsumerClient(
-        "test_topic",
-        group_id="group1",
-        bootstrap_servers=[KAFKA_HOST],
-        enable_auto_commit=False,
-    )
-    await consumer.start()
+    async with get_consumer() as consumer:
+        msg1 = await consumer.getone()
+        assert msg1.offset == msg.offset, "Offsets without commit should be equal"
 
-    # read 5 messages but don't commit offset
-    async for msg in consumer:
-        logging.info(msg)
-        if "5" in msg.value.decode():
-            break
-    await consumer.stop()
 
-    # start another consumer
-    consumer = KafkaConsumerClient(
-        "test_topic",
-        group_id="group1",
-        bootstrap_servers=[KAFKA_HOST],
-        enable_auto_commit=False,
-    )
-    await consumer.start()
-    # read 5 messages and note offset wasn't committed
-    async for msg in consumer:
+@pytest.mark.parametrize("messages", [1])
+async def test_commit_offset_context_with_exception_should_be_updated(producer):
+    async with get_consumer() as consumer:
+        try:
+            async with consumer_commit(consumer):
+                msg = await consumer.getone()
+                logging.info(msg.value)
+                raise AssertionError("Intentional assert")
+        except AssertionError:
+            pass
+
+    async with get_consumer() as consumer:
+        msg1 = await consumer.getone()
+        assert msg1.offset == msg.offset, "Offsets with exception should be equal"
+
+
+@pytest.mark.parametrize("messages", [2])
+async def test_commit_offset_context_should_be_updated(producer):
+    async with get_consumer() as consumer:
+        msg = await consumer.getone()
         async with consumer_commit(consumer):
-            logging.info(msg)
-            if "5" in msg.value.decode():
-                break
-    await consumer.stop()
+            pass
 
-    # start another consumer
-    consumer = KafkaConsumerClient(
-        "test_topic",
-        group_id="group1",
-        bootstrap_servers=[KAFKA_HOST],
-        enable_auto_commit=False,
-    )
-    await consumer.start()
-    # read 5 messages and note offset WAS committed
-    async for msg in consumer:
+    async with get_consumer() as consumer:
+        msg1 = await consumer.getone()
         async with consumer_commit(consumer):
-            logging.info(msg)
-            if "10" in msg.value.decode():
-                break
-    await consumer.stop()
+            pass
+        assert msg1.offset == msg.offset + 1, "Offsets should not be equal"
