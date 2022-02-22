@@ -40,13 +40,6 @@ async def get_consumer():
 
 
 @asynccontextmanager
-async def consumer():
-    con = get_consumer()
-    yield con
-    await con.stop()
-
-
-@asynccontextmanager
 async def consumer_commit(client: KafkaConsumerClient):
     yield
     await client.commit()
