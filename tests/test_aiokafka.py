@@ -90,3 +90,20 @@ async def test_commit_offset_context_should_be_updated(producer):
         async with consumer_commit(consumer):
             pass
         assert msg1.offset == msg.offset + 1, "Offsets should not be equal"
+
+
+@pytest.mark.parametrize("messages", [5])
+async def test_commit_offset_context_should_be_updated_in_iterator(producer):
+    offset = -1
+    count = 0
+    async with get_consumer() as consumer:
+        async for msg in consumer:
+            async with consumer_commit(consumer):
+                if offset == -1:
+                    offset = msg.offset
+                else:
+                    assert msg.offset == offset + 1, "Offset not incremented by one"
+                    offset = msg.offset
+                count += 1
+                if count == 5:
+                    break
