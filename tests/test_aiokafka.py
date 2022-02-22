@@ -42,7 +42,8 @@ async def consumer_commit(client: KafkaConsumerClient):
 
 
 async def test_commit(producer):
-    for i in range(10):
+    # add some messages
+    for i in range(1, 11):
         await producer.send_and_wait(
             topic="test_topic", value=f"Test message {i}".encode()
         )
@@ -55,10 +56,11 @@ async def test_commit(producer):
     )
     await consumer.start()
 
-    # don't commit offset
-    for _ in range(5):
-        msg = await consumer.getone()
+    # read 5 messages but don't commit offset
+    async for msg in consumer:
         logging.info(msg)
+        if "5" in msg.value.decode():
+            break
     await consumer.stop()
 
     # start another consumer
@@ -70,10 +72,11 @@ async def test_commit(producer):
     )
     await consumer.start()
     # read 5 messages and note offset wasn't committed
-    for _ in range(5):
+    async for msg in consumer:
         async with consumer_commit(consumer):
-            msg = await consumer.getone()
             logging.info(msg)
+            if "5" in msg.value.decode():
+                break
     await consumer.stop()
 
     # start another consumer
@@ -85,8 +88,9 @@ async def test_commit(producer):
     )
     await consumer.start()
     # read 5 messages and note offset WAS committed
-    for _ in range(5):
+    async for msg in consumer:
         async with consumer_commit(consumer):
-            msg = await consumer.getone()
             logging.info(msg)
+            if "10" in msg.value.decode():
+                break
     await consumer.stop()
