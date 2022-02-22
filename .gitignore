@@ -1,0 +1,4 @@
+.venv
+aiokafka
+kafka-python
+__pycache__

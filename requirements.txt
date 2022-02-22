@@ -1,0 +1,7 @@
+aiokafka==0.7.2
+kafka-python==2.0.2
+mode==4.4.0
+pytest
+
+git+ssh://git@github.com/compute-cloud/rugby-common.git
+git+ssh://git@github.com/compute-cloud/metrics-utils.git
