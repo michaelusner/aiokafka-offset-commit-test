@@ -56,7 +56,7 @@ async def test_commit_offset_without_context_should_not_be_updated(producer):
 
 
 @pytest.mark.parametrize("messages", [1])
-async def test_commit_offset_context_with_exception_should_be_updated(producer):
+async def test_commit_offset_context_with_exception_should_not_be_updated(producer):
     async with get_consumer() as consumer:
         try:
             async with consumer_commit(consumer):
